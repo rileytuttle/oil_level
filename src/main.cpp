@@ -134,16 +134,19 @@ private:
     static constexpr float MM_TO_PERCENT_CONVERSION_FACTOR = 0.001f;
     static constexpr float LOW_THRESHOLD = 0.2f; // 20 or less percent of tank is low
     static constexpr float FULL_THRESHOLD = 0.9f; // 90 percent or more is considered full
+    static constexpr unsigned int CONSEC_ERROR_THRESH = 5;
 
     Adafruit_VL53L1X vl53;
     float m_current_level {0.0f};
     unsigned long prev_update_ts {0};
     bool m_distance_valid {false};
     Status m_prev_status {Status::NONE};
+    unsigned int m_consec_error {0};
 
     int16_t get_distance();
     float mm_to_percent(const int16_t dist_mm) { return 1.0f - (dist_mm * MM_TO_PERCENT_CONVERSION_FACTOR); }
     bool recently_filled(const Status& old_status, const Status& new_status) { return old_status != Status::FULL && new_status == Status::FULL; }
+    bool check_for_consec_error();
 };
 
 void OilLevelMonitor::init()
@@ -151,6 +154,7 @@ void OilLevelMonitor::init()
     prev_update_ts = 0;
     m_current_level = 0.0f;
     m_distance_valid = false;
+    m_consec_error = 0;
 
     Wire.begin();
     if (! vl53.begin(0x29, &Wire)) {
@@ -211,8 +215,8 @@ OilLevelMonitor::Status OilLevelMonitor::update()
     if (current_millis - prev_update_ts > MEASUREMENT_INTERVAL)
     {
         m_current_level = mm_to_percent(get_distance());
-        Serial.print(m_current_level);
-        Serial.println(" %");
+        // Serial.print(m_current_level * 100.0f, 2);
+        // Serial.println(" %");
         if (!m_distance_valid)
         {
             ret_status = Status::ERROR;
@@ -235,6 +239,26 @@ OilLevelMonitor::Status OilLevelMonitor::update()
             // if level is higher than it was before trigger fill notification
             // probably pass in a callback to call
         }
+        Serial.print("prev status: ");
+        Serial.print(static_cast<int>(m_prev_status));
+        Serial.print(" new status: ");
+        Serial.println(static_cast<int>(ret_status));
+        if (m_prev_status == Status::ERROR &&
+            ret_status == Status::ERROR)
+        {
+            m_consec_error+=1;
+        }
+        else
+        {
+            m_consec_error=0;
+        }
+        if (m_consec_error >= CONSEC_ERROR_THRESH)
+        {
+            m_current_level = 0;
+            ret_status = Status::ERROR;
+        }
+        Serial.print("consec error: ");
+        Serial.println(m_consec_error);
 
         prev_update_ts = current_millis;
     }
