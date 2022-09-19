@@ -12,7 +12,7 @@ public:
         ERROR,    // some kind of error has occurred
         FULL,     // when the tank is considered full
         NOT_FULL, // when the tank is somewhere between full and low
-        LOW,      // when the tank is low (time to refill)
+        TANK_LOW,      // when the tank is low (time to refill)
     };
 
     OilLevelMonitor() : vl53(XSHUT_PIN, IRQ_PIN) {}

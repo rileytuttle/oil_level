@@ -78,7 +78,7 @@ OilLevelMonitor::Status OilLevelMonitor::update()
         }
         else if (m_current_level < LOW_THRESHOLD)
         {
-            ret_status = Status::LOW;
+            ret_status = Status::TANK_LOW;
         }
         else
         {

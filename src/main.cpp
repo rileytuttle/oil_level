@@ -48,7 +48,7 @@ void loop() {
     const OilLevelMonitor::Status prev_status = oil_level_monitor.get_status();
 
     const OilLevelMonitor::Status status = oil_level_monitor.update();
-    if (prev_status != status && status == OilLevelMonitor::Status::LOW)
+    if (prev_status != status && status == OilLevelMonitor::Status::TANK_LOW)
     {
         melody_player.begin_playing();
     }
