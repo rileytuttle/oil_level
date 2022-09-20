@@ -1,9 +1,9 @@
 import paho.mqtt.client as mqtt
 import credentials as creds
+import requests
 
 MQTT_ADDRESS = "192.168.1.235"
 MQTT_TOPIC = "home/tank/+"
-
 
 def on_connect(client, userdata, flags, rc):
     """ The callback for when the client receives a CONNACK response from the server."""
@@ -13,6 +13,10 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     """The callback for when a PUBLISH message is received from the server."""
     print(msg.topic + ' ' + str(msg.payload))
+    if msg.topic == "home/tank/status":
+        if "Low" in str(msg.payload):
+            print("tank low received");
+            requests.post(f'https://maker.ifttt.com/trigger/tank_low/with/key/{creds.webhooks_apikey}')
 
 def main():
     mqtt_client = mqtt.Client()
@@ -23,5 +27,5 @@ def main():
     mqtt_client.loop_forever()
 
 if __name__ == '__main__':
-    print('MQTT to InfluxDB bridge')
+    print('MQTT to IFTTT')
     main()

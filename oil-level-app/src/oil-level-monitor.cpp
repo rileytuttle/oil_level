@@ -13,7 +13,7 @@ String OilLevelMonitor::status_to_string(Status status)
         case Status::NOT_FULL:
             return String("Not full");
         case Status::TANK_LOW:
-            return String("LOW");
+            return String("Low");
         default:
             return String("Unexpected Case");
     }
