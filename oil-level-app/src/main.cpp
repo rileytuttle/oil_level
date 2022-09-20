@@ -72,7 +72,7 @@ static void connect_MQTT()
 static void mqtt_publish(OilLevelMonitor::Status status, float level)
 {
     connect_MQTT();
-    String tank_level_string = "level: "+String((float)level)+"%";
+    String tank_level_string = "level: "+String((float)(level * 100))+"%";
     String status_st = OilLevelMonitor::status_to_string(status);
     String tank_status_string = "status: "+status_st;
     if (client.publish(Mqtt::tank_level_topic, tank_level_string.c_str()))
