@@ -1,5 +1,24 @@
 #include <oil-level-monitor.hpp>
 
+String OilLevelMonitor::status_to_string(Status status)
+{
+    switch (status)
+    {
+        case Status::NONE:
+            return String("None");
+        case Status::ERROR:
+            return String("Error");
+        case Status::FULL:
+            return String("Full");
+        case Status::NOT_FULL:
+            return String("Not full");
+        case Status::TANK_LOW:
+            return String("LOW");
+        default:
+            return String("Unexpected Case");
+    }
+}
+
 void OilLevelMonitor::init()
 {
     prev_update_ts = 0;

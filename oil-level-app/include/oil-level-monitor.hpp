@@ -21,6 +21,7 @@ public:
     Status update();
     float get_level() const { return m_current_level; }
     Status get_status() const { return m_prev_status; }
+    static String status_to_string(Status status);
 private:
     static constexpr unsigned long MEASUREMENT_INTERVAL = 1000;
     static constexpr float MM_TO_PERCENT_CONVERSION_FACTOR = 0.001f;
