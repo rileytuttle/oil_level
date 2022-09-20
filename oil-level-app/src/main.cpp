@@ -1,5 +1,4 @@
 #include <oil-level-monitor.hpp>
-// #include <melody-player.hpp>
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
 #include <credentials.h>
@@ -93,6 +92,23 @@ static void mqtt_publish(OilLevelMonitor::Status status, float level)
         Serial.println("failed to send tank status");
     }
     client.disconnect();
+    WiFi.mode(WIFI_OFF);
+}
+
+void wakeup_cb()
+{
+    wifi_fpm_close();
+}
+
+static void light_sleep()
+{
+    wifi_station_disconnect();
+    wifi_set_opmode_current(NULL_MODE);
+    wifi_fpm_set_sleep_type(LIGHT_SLEEP_T);
+    wifi_fpm_open();
+    wifi_fpm_set_wakeup_cb(wakeup_cb);
+    wifi_fpm_do_sleep(10e6);
+    delay(100010);
 }
 
 void setup() {
@@ -117,4 +133,11 @@ void loop() {
         mqtt_publish(status, oil_level_monitor.get_level());
         mqtt_prev_publish = current_millis;
     }
+    // else
+    // {
+    //     Serial.println("not time to publish yet");
+    // }
+    // Serial.println("sleeping");
+    // light_sleep();
+    // Serial.println("wake up");
 }
