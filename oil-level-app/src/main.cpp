@@ -11,6 +11,7 @@ static constexpr unsigned long TANK_LOW_PUBLISH_INTERVAL = 1000 * 60; // minimum
 static constexpr unsigned long TANK_FILLED_PUBLISH_INTERVAL = 1000 * 60; // minimum interval between webhooks publishes
 
 WiFiClient wifiClient;
+const char* server = String("https://maker.ifttt.com/trigger/tank_status_change/with/key/"+String(Creds::Webhooks::apikey)+"/").c_str();
 static unsigned long s_tank_low_event_ts = 0;
 static unsigned long s_tank_filled_event_ts = 0;
 
@@ -48,8 +49,9 @@ static void webhooks_tank_low_event(OilLevelMonitor::Status status, float pct)
     {
         connect_wifi();
         HTTPClient http;
-        http.begin(wifiClient, "https://maker.ifttt.com/trigger/tank_status_change/with/key"+String(Creds::Webhooks::apikey)+"?value1="+OilLevelMonitor::status_to_string(status)+"&value2="+pct);
-        http.GET();
+        http.begin(wifiClient, server);
+        String httpRequestData = "?value1="+OilLevelMonitor::status_to_string(status)+"&value2="+pct;
+        http.POST(httpRequestData);
         http.end();
         disconnect_wifi();
     }
@@ -62,8 +64,9 @@ static void webhooks_tank_filled_event(OilLevelMonitor::Status status, float pct
     {
         connect_wifi();
         HTTPClient http;
-        http.begin(wifiClient, "https://maker.ifttt.com/trigger/tank_status_change/with/key"+String(Creds::Webhooks::apikey)+"?value1=Filled"+"&value2="+pct);
-        http.GET();
+        http.begin(wifiClient, server);
+        String httpRequestData = "?value1=Filled&value2="+String(pct);
+        http.POST(httpRequestData);
         http.end();
         disconnect_wifi();
     }
