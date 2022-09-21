@@ -10,9 +10,17 @@
 static constexpr unsigned long TANK_LOW_PUBLISH_INTERVAL = 1000 * 60; // minimum interval between webhooks publishes
 static constexpr unsigned long TANK_FILLED_PUBLISH_INTERVAL = 1000 * 60; // minimum interval between webhooks publishes
 
-WiFiClientSecure wifiClient;
+// WiFiClientSecure wifiClient;
+WiFiClient wifiClient;
 static unsigned long s_tank_low_event_ts = 0;
 static unsigned long s_tank_filled_event_ts = 0;
+
+
+namespace IFTTT
+{
+    const String host = "maker.ifttt.com";
+    const int port = 443;
+}
 
 static void connect_wifi()
 {
@@ -47,8 +55,8 @@ static void webhooks_tank_low_event(OilLevelMonitor::Status status, float pct)
     if (current_millis - s_tank_low_event_ts > TANK_LOW_PUBLISH_INTERVAL)
     {
         connect_wifi();
-        wifiClient.setInsecure();
-        if (!wifiClient.connect("maker.ifttt.com", 443))
+        // wifiClient.setInsecure();
+        if (!wifiClient.connect(IFTTT::host, IFTTT::port))
         {
             Serial.println("connection failed");
             return;
@@ -67,7 +75,9 @@ static void webhooks_tank_low_event(OilLevelMonitor::Status status, float pct)
         postString += "/with/key/";
         postString += String(Creds::Webhooks::apikey);
         postString += " HTTP/1.1\r\n";
-        postString += "Host: maker.ifttt.com\r\n";
+        postString += "Host: ";
+        postString += IFTTT::host;
+        postString += "\r\n";
         postString += "Content-Type: application/json\r\n";
         postString += "Content-Length: ";
         postString += lenString + "\r\n";
@@ -85,22 +95,27 @@ static void webhooks_tank_filled_event(OilLevelMonitor::Status status, float pct
     if (current_millis - s_tank_filled_event_ts > TANK_FILLED_PUBLISH_INTERVAL)
     {
         connect_wifi();
-        wifiClient.setInsecure();
-        if (!wifiClient.connect("maker.ifttt.com", 443))
+        // wifiClient.setInsecure();
+        // if (!wifiClient.connect(IFTTT::host, IFTTT::port))
+        if (!wifiClient.connect(IFTTT::host, 80))
         {
             Serial.println("connection failed");
             return;
         }
-        String url = "/trigger/tank_status_change/with/key/"+String(Creds::Webhooks::apikey)+"?Value1=Filled&Value2="+String(pct);
-        wifiClient.print(String("GET ") + url + " HTTP/1.1\r\n" +
-            "Host: maker.ifttt.com\r\n" +
-            "Connection: close\r\n\r\n");
-        // HTTPClient http;
-        // String httpRequestData = "https://maker.ifttt.com/trigger/tank_status_change/?value1=Filled&value2="+String(pct);
-        // http.begin(wifiClient, httpRequestData);
-        // http.GET();
-        // http.end();
-        // disconnect_wifi();
+        String get_string = "";
+        get_string += "GET ";
+        get_string += "/trigger/tank_status_change/with/key/";
+        get_string += String(Creds::Webhooks::apikey);
+        get_string += "?Value1=Filled&Value2=";
+        get_string += String(pct);
+        get_string += " HTTP/1.1\r\n";
+        get_string += "Host: ";
+        get_string += IFTTT::host;
+        get_string += "\r\n";
+        get_string += "Connection: close\r\n";
+        wifiClient.print(get_string);
+        wifiClient.stop();
+        disconnect_wifi();
     }
 }
 
