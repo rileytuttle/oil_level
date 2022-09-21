@@ -10,8 +10,7 @@
 static constexpr unsigned long TANK_LOW_PUBLISH_INTERVAL = 1000 * 60; // minimum interval between webhooks publishes
 static constexpr unsigned long TANK_FILLED_PUBLISH_INTERVAL = 1000 * 60; // minimum interval between webhooks publishes
 
-WiFiClient wifiClient;
-const char* server = String("https://maker.ifttt.com/trigger/tank_status_change/with/key/"+String(Creds::Webhooks::apikey)+"/").c_str();
+WiFiClientSecure wifiClient;
 static unsigned long s_tank_low_event_ts = 0;
 static unsigned long s_tank_filled_event_ts = 0;
 
@@ -48,11 +47,34 @@ static void webhooks_tank_low_event(OilLevelMonitor::Status status, float pct)
     if (current_millis - s_tank_low_event_ts > TANK_LOW_PUBLISH_INTERVAL)
     {
         connect_wifi();
-        HTTPClient http;
-        http.begin(wifiClient, server);
-        String httpRequestData = "?value1="+OilLevelMonitor::status_to_string(status)+"&value2="+pct;
-        http.POST(httpRequestData);
-        http.end();
+        wifiClient.setInsecure();
+        if (!wifiClient.connect("maker.ifttt.com", 443))
+        {
+            Serial.println("connection failed");
+            return;
+        }
+        String jsonString = "";
+        jsonString += "{\value1\":\"";
+        jsonString += OilLevelMonitor::status_to_string(status);
+        jsonString += "\",\"value2\":\"";
+        jsonString += String(pct);
+        jsonString += "\"}";
+        int jsonLength = jsonString.length();
+        String lenString = String(jsonLength);
+        String postString = "";
+        postString += "POST /trigger/";
+        postString += "tank_status_change";
+        postString += "/with/key/";
+        postString += String(Creds::Webhooks::apikey);
+        postString += " HTTP/1.1\r\n";
+        postString += "Host: maker.ifttt.com\r\n";
+        postString += "Content-Type: application/json\r\n";
+        postString += "Content-Length: ";
+        postString += lenString + "\r\n";
+        postString += "\r\n";
+        postString += jsonString;
+        wifiClient.print(postString);
+        wifiClient.stop();
         disconnect_wifi();
     }
 }
@@ -63,12 +85,22 @@ static void webhooks_tank_filled_event(OilLevelMonitor::Status status, float pct
     if (current_millis - s_tank_filled_event_ts > TANK_FILLED_PUBLISH_INTERVAL)
     {
         connect_wifi();
-        HTTPClient http;
-        http.begin(wifiClient, server);
-        String httpRequestData = "?value1=Filled&value2="+String(pct);
-        http.POST(httpRequestData);
-        http.end();
-        disconnect_wifi();
+        wifiClient.setInsecure();
+        if (!wifiClient.connect("maker.ifttt.com", 443))
+        {
+            Serial.println("connection failed");
+            return;
+        }
+        String url = "/trigger/tank_status_change/with/key/"+String(Creds::Webhooks::apikey)+"?Value1=Filled&Value2="+String(pct);
+        wifiClient.print(String("GET ") + url + " HTTP/1.1\r\n" +
+            "Host: maker.ifttt.com\r\n" +
+            "Connection: close\r\n\r\n");
+        // HTTPClient http;
+        // String httpRequestData = "https://maker.ifttt.com/trigger/tank_status_change/?value1=Filled&value2="+String(pct);
+        // http.begin(wifiClient, httpRequestData);
+        // http.GET();
+        // http.end();
+        // disconnect_wifi();
     }
 }
 
