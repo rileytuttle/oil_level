@@ -11,7 +11,8 @@ static constexpr unsigned long TANK_LOW_PUBLISH_INTERVAL = 1000 * 60; // minimum
 static constexpr unsigned long TANK_FILLED_PUBLISH_INTERVAL = 1000 * 60; // minimum interval between webhooks publishes
 
 WiFiClient wifiClient;
-unsigned long webhooks_prev_publish = 0;
+static unsigned long s_tank_low_event_ts = 0;
+static unsigned long s_tank_filled_event_ts = 0;
 
 static void connect_wifi()
 {
@@ -40,36 +41,36 @@ static void disconnect_wifi()
     WiFi.mode(WIFI_OFF);
 }
 
-static void webhooks_tank_low_event(float pct)
+static void webhooks_tank_low_event(OilLevelMonitor::Status status, float pct)
 {
     const unsigned long current_millis = millis(); 
     if (current_millis - s_tank_low_event_ts > TANK_LOW_PUBLISH_INTERVAL)
     {
         connect_wifi();
         HTTPClient http;
-        http.begin(wifiClient, "https://maker.ifttt.com/trigger/tank_low/with/key"+String(Creds::Webhooks::apikey)+"?value1="+pct);
+        http.begin(wifiClient, "https://maker.ifttt.com/trigger/tank_status_change/with/key"+String(Creds::Webhooks::apikey)+"?value1="+OilLevelMonitor::status_to_string(status)+"&value2="+pct);
         http.GET();
         http.end();
         disconnect_wifi();
     }
 }
 
-static void webhooks_tank_filled_event(float pct)
+static void webhooks_tank_filled_event(OilLevelMonitor::Status status, float pct)
 {
     const unsigned long current_millis = millis(); 
     if (current_millis - s_tank_filled_event_ts > TANK_FILLED_PUBLISH_INTERVAL)
     {
         connect_wifi();
         HTTPClient http;
-        http.begin(wifiClient, "https://maker.ifttt.com/trigger/tank_filled/with/key"+String(Creds::Webhooks::apikey)+"?value1="+pct);
+        http.begin(wifiClient, "https://maker.ifttt.com/trigger/tank_status_change/with/key"+String(Creds::Webhooks::apikey)+"?value1=Filled"+"&value2="+pct);
         http.GET();
         http.end();
         disconnect_wifi();
     }
 }
 
-// OilLevelMonitor oil_level_monitor(webhooks_tank_low_event, webhooks_tank_filled_event);
-OilLevelMonitor oil_level_monitor; // use this for testing
+OilLevelMonitor oil_level_monitor(webhooks_tank_low_event, webhooks_tank_filled_event);
+// OilLevelMonitor oil_level_monitor; // use this for testing
 
 void setup() {
     Serial.begin(115200);

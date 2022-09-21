@@ -111,13 +111,13 @@ OilLevelMonitor::Status OilLevelMonitor::update()
             {
                 // if level is higher than it was before trigger fill notification
                 // probably pass in a callback to call
-                Serial.println("recently filled");
-                if (m_tank_filled_cb) { m_tank_filled_cb(m_current_level); }
+                // Serial.println("recently filled");
+                if (m_tank_filled_cb) { m_tank_filled_cb(ret_status, m_current_level); }
             }
             if (tank_low_event(m_prev_status, ret_status))
             {
-                Serial.println("tank is low");
-                if (m_tank_low_cb) { m_tank_low_cb(m_current_level); }
+                // Serial.println("tank is low");
+                if (m_tank_low_cb) { m_tank_low_cb(ret_status, m_current_level); }
             }
             // Serial.print("prev status: ");
             // Serial.print(static_cast<int>(m_prev_status));
