@@ -2,40 +2,18 @@
 #include <PubSubClient.h>
 #include <ESP8266WiFi.h>
 #include <credentials.h>
+#include <ESP8266HTTPClient.h>
 
 #include <Arduino.h>
 #include <vector>
 
-namespace Mqtt
-{
-    const char* server = "192.168.1.235";
-    const char* clientID = "tank_monitor_client";
-    const char* tank_level_topic = "home/tank/level";
-    const char* tank_status_topic = "home/tank/status";
-}
+static constexpr unsigned long TANK_LOW_PUBLISH_INTERVAL = 1000 * 60; // minimum interval between webhooks publishes
+static constexpr unsigned long TANK_FILLED_PUBLISH_INTERVAL = 1000 * 60; // minimum interval between webhooks publishes
 
 WiFiClient wifiClient;
-PubSubClient client(Mqtt::server, 1883, wifiClient);
+unsigned long webhooks_prev_publish = 0;
 
-OilLevelMonitor oil_level_monitor;
-
-unsigned long mqtt_prev_publish = 0;
-
-
-// // notes in the melody:
-// // note durations: 4 = quarter note, 8 = eighth note, etc.:
-// const std::vector<std::pair<int, float>> MELODY =
-// {
-//     {NOTE_C4, 0.25f},
-//     {NOTE_G3, 0.125f},
-//     {NOTE_G3, 0.125f},
-//     {NOTE_A3, 0.25f},
-//     {NOTE_G3, 0.25f},
-//     {0,       0.25f},
-//     {NOTE_B3, 0.25f},
-//     {NOTE_C4, 0.25f},
-// };
-static void connect_MQTT()
+static void connect_wifi()
 {
     Serial.print("Connecting to ");
     Serial.println(Creds::Wifi::ssid);
@@ -55,61 +33,43 @@ static void connect_MQTT()
     Serial.println("WiFi connected");
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
-    // Connect to MQTT Broker
-    // client.connect returns a boolean value to let us know if the connection was successful.
-    // If the connection is failing, make sure you are using the correct MQTT Username and Password (Setup Earlier in the Instructable)
-    if (client.connect(Mqtt::clientID, Creds::Mqtt::username, Creds::Mqtt::password))
-    {
-        Serial.println("Connected to MQTT Broker!");
-    }
-    else
-    {
-        Serial.println("Connection to MQTT Broker failed...");
-    }
 }
 
-static void mqtt_publish(OilLevelMonitor::Status status, float level)
+static void disconnect_wifi()
 {
-    connect_MQTT();
-    String tank_level_string = "level: "+String((float)(level * 100))+"%";
-    String status_st = OilLevelMonitor::status_to_string(status);
-    String tank_status_string = "status: "+status_st;
-    if (client.publish(Mqtt::tank_level_topic, tank_level_string.c_str()))
-    {
-        Serial.println("tank level sent");
-    }
-    else
-    {
-        Serial.println("failed to send tank level");
-    }
-
-    if (client.publish(Mqtt::tank_status_topic, tank_status_string.c_str()))
-    {
-        Serial.println("tank status sent");
-    }
-    else
-    {
-        Serial.println("failed to send tank status");
-    }
-    client.disconnect();
     WiFi.mode(WIFI_OFF);
 }
 
-void wakeup_cb()
+static void webhooks_tank_low_event(float pct)
 {
-    wifi_fpm_close();
+    const unsigned long current_millis = millis(); 
+    if (current_millis - s_tank_low_event_ts > TANK_LOW_PUBLISH_INTERVAL)
+    {
+        connect_wifi();
+        HTTPClient http;
+        http.begin(wifiClient, "https://maker.ifttt.com/trigger/tank_low/with/key"+String(Creds::Webhooks::apikey)+"?value1="+pct);
+        http.GET();
+        http.end();
+        disconnect_wifi();
+    }
 }
 
-static void light_sleep()
+static void webhooks_tank_filled_event(float pct)
 {
-    wifi_station_disconnect();
-    wifi_set_opmode_current(NULL_MODE);
-    wifi_fpm_set_sleep_type(LIGHT_SLEEP_T);
-    wifi_fpm_open();
-    wifi_fpm_set_wakeup_cb(wakeup_cb);
-    wifi_fpm_do_sleep(10e6);
-    delay(100010);
+    const unsigned long current_millis = millis(); 
+    if (current_millis - s_tank_filled_event_ts > TANK_FILLED_PUBLISH_INTERVAL)
+    {
+        connect_wifi();
+        HTTPClient http;
+        http.begin(wifiClient, "https://maker.ifttt.com/trigger/tank_filled/with/key"+String(Creds::Webhooks::apikey)+"?value1="+pct);
+        http.GET();
+        http.end();
+        disconnect_wifi();
+    }
 }
+
+// OilLevelMonitor oil_level_monitor(webhooks_tank_low_event, webhooks_tank_filled_event);
+OilLevelMonitor oil_level_monitor; // use this for testing
 
 void setup() {
     Serial.begin(115200);
@@ -121,23 +81,9 @@ void setup() {
 }
 
 void loop() {
-    const unsigned long current_millis = millis();
+    // const unsigned long current_millis = millis();
     const OilLevelMonitor::Status prev_status = oil_level_monitor.get_status();
-    (void)prev_status;
-
+    (void) prev_status;
     const OilLevelMonitor::Status status = oil_level_monitor.update();
-    (void)status;
-
-    if (current_millis - mqtt_prev_publish > 1000 * 60)
-    {
-        mqtt_publish(status, oil_level_monitor.get_level());
-        mqtt_prev_publish = current_millis;
-    }
-    // else
-    // {
-    //     Serial.println("not time to publish yet");
-    // }
-    // Serial.println("sleeping");
-    // light_sleep();
-    // Serial.println("wake up");
+    (void) status;
 }

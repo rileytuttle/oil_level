@@ -25,6 +25,7 @@ void OilLevelMonitor::init()
     m_current_level = 0.0f;
     m_distance_valid = false;
     m_consec_error = 0;
+    m_gone_through_once = false;
 
     Wire.begin();
     if (! vl53.begin(0x29, &Wire)) {
@@ -104,35 +105,48 @@ OilLevelMonitor::Status OilLevelMonitor::update()
             ret_status = Status::NOT_FULL;
         }
 
-        if (recently_filled(m_prev_status, ret_status))
+        if (m_gone_through_once)
         {
-            // if level is higher than it was before trigger fill notification
-            // probably pass in a callback to call
-            Serial.println("recently filled");
-        }
-        // Serial.print("prev status: ");
-        // Serial.print(static_cast<int>(m_prev_status));
-        // Serial.print(" new status: ");
-        // Serial.println(static_cast<int>(ret_status));
-        if (m_prev_status == Status::ERROR)
-        {
-            if (ret_status == Status::ERROR)
+            if (recently_filled(m_prev_status, ret_status))
             {
-                m_consec_error+=1;
+                // if level is higher than it was before trigger fill notification
+                // probably pass in a callback to call
+                Serial.println("recently filled");
+                if (m_tank_filled_cb) { m_tank_filled_cb(m_current_level); }
             }
-            else
+            if (tank_low_event(m_prev_status, ret_status))
             {
-                m_consec_error=0;
+                Serial.println("tank is low");
+                if (m_tank_low_cb) { m_tank_low_cb(m_current_level); }
             }
-        }
+            // Serial.print("prev status: ");
+            // Serial.print(static_cast<int>(m_prev_status));
+            // Serial.print(" new status: ");
+            // Serial.println(static_cast<int>(ret_status));
+            if (m_prev_status == Status::ERROR)
+            {
+                if (ret_status == Status::ERROR)
+                {
+                    m_consec_error+=1;
+                }
+                else
+                {
+                    m_consec_error=0;
+                }
+            }
 
-        if (m_consec_error >= CONSEC_ERROR_THRESH)
-        {
-            m_current_level = 0;
-            ret_status = Status::ERROR;
+            if (m_consec_error >= CONSEC_ERROR_THRESH)
+            {
+                m_current_level = 0;
+                ret_status = Status::ERROR;
+            }
+            // Serial.print("consec error: ");
+            // Serial.println(m_consec_error);
         }
-        // Serial.print("consec error: ");
-        // Serial.println(m_consec_error);
+        else
+        {
+            m_gone_through_once = true;
+        }
 
         prev_update_ts = current_millis;
     }
