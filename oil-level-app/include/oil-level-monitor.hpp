@@ -1,4 +1,5 @@
 #include <Adafruit_VL53L1X.h>
+#include <functional>
 
 #define IRQ_PIN 2
 #define XSHUT_PIN 3
@@ -15,6 +16,12 @@ public:
         TANK_LOW,      // when the tank is low (time to refill)
     };
 
+    OilLevelMonitor(
+        std::function<void(float)> tank_low_cb,
+        std::function<void(float)> tank_filled_cb) :
+        m_tank_low_cb(tank_low_cb),
+        m_tank_filled_cb(tank_filled_cb),
+        vl53(XSHUT_PIN, IRQ_PIN) {}
     OilLevelMonitor() : vl53(XSHUT_PIN, IRQ_PIN) {}
     ~OilLevelMonitor() {}
     void init();
@@ -31,13 +38,17 @@ private:
 
     Adafruit_VL53L1X vl53;
     float m_current_level {0.0f};
+    bool m_gone_through_once {false};
     unsigned long prev_update_ts {0};
     bool m_distance_valid {false};
     Status m_prev_status {Status::NONE};
     unsigned int m_consec_error {0};
+    std::function<void(float)> m_tank_low_cb;
+    std::function<void(float)> m_tank_filled_cb;
 
     int16_t get_distance();
     float mm_to_percent(const int16_t dist_mm) { return 1.0f - (dist_mm * MM_TO_PERCENT_CONVERSION_FACTOR); }
-    bool recently_filled(const Status& old_status, const Status& new_status) { return old_status != Status::FULL && new_status == Status::FULL; }
+    bool recently_filled(const Status& old_status, const Status& new_status) const { return old_status != Status::FULL && new_status == Status::FULL; }
+    bool tank_low_event(const Status& old_status, const Status& new_status) const { return old_status != new_status && new_status == Status::TANK_LOW; }
     bool check_for_consec_error();
 };

@@ -2,7 +2,7 @@ import paho.mqtt.client as mqtt
 import credentials as creds
 import requests
 
-MQTT_ADDRESS = "192.168.1.235"
+MQTT_ADDRESS = "localhost"
 MQTT_TOPIC = "home/tank/+"
 
 def on_connect(client, userdata, flags, rc):
