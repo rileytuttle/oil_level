@@ -39,19 +39,20 @@ private:
     static constexpr uint32_t DEFAULT_MEASUREMENT_INTERVAL = 1000;
     static constexpr float LOW_THRESHOLD = 0.2f; // 20 or less percent of tank is low
     static constexpr float FULL_THRESHOLD = 0.9f; // 90 percent or more is considered full
-    static constexpr unsigned int CONSEC_ERROR_THRESH = 5;
     static constexpr size_t DEFAULT_FILTER_SIZE = 20;
     static constexpr std::pair<int16_t, int16_t> DEFAULT_TANK_RANGE = {120, 1000};
+    static constexpr uint32_t MAX_TIME_BETWEEN_VALID_MEASURMENTS_MS = 1000 * 60 * 60 * 6; // want to see at least 1 valid measurement every 6 hours
 
     Adafruit_VL53L1X vl53;
     float m_current_level {0.0f};
     bool m_gone_through_once {false};
-    unsigned long prev_update_ts {0};
+    uint32_t prev_update_ts {0};
     bool m_distance_valid {false};
     Status m_prev_status {Status::NONE};
     unsigned int m_consec_error {0};
     Params m_params;
     std::vector<int16_t> m_measurements;
+    uint32_t m_last_valid_measurement {0};
 
     int16_t get_distance();
     float mm_to_percent(const int16_t dist_mm) const { return 1.0f - (dist_mm / m_params.tank_range.second - m_params.tank_range.first); }

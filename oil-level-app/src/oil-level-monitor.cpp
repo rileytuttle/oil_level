@@ -28,6 +28,7 @@ void OilLevelMonitor::init()
     m_consec_error = 0;
     m_gone_through_once = false;
     m_measurements.clear();
+    m_last_valid_measurement = 0;
 
     Wire.begin();
     if (! vl53.begin(0x29, &Wire)) {
@@ -90,6 +91,7 @@ void OilLevelMonitor::update_level()
         // no need to check for it
         const float avg = std::reduce(m_measurements.begin(), m_measurements.end()) / m_measurements.size();
         m_current_level = mm_to_percent(avg);
+        m_last_valid_measurement = millis();
     }
 }
 
@@ -103,7 +105,11 @@ OilLevelMonitor::Status OilLevelMonitor::update()
         m_current_level = get_level();
         // Serial.print(m_current_level * 100.0f, 2);
         // Serial.println(" %");
-        if (m_current_level > FULL_THRESHOLD)
+        if (current_millis - m_last_valid_measurement > MAX_TIME_BETWEEN_VALID_MEASURMENTS_MS)
+        {
+            ret_status = Status::ERROR;
+        }
+        else if (m_current_level > FULL_THRESHOLD)
         {
             ret_status = Status::FULL;
         }
@@ -130,29 +136,6 @@ OilLevelMonitor::Status OilLevelMonitor::update()
                 // Serial.println("tank is low");
                 if (m_params.tank_low_cb) { m_params.tank_low_cb(ret_status, m_current_level); }
             }
-            // Serial.print("prev status: ");
-            // Serial.print(static_cast<int>(m_prev_status));
-            // Serial.print(" new status: ");
-            // Serial.println(static_cast<int>(ret_status));
-            if (m_prev_status == Status::ERROR)
-            {
-                if (ret_status == Status::ERROR)
-                {
-                    m_consec_error+=1;
-                }
-                else
-                {
-                    m_consec_error=0;
-                }
-            }
-
-            if (m_consec_error >= CONSEC_ERROR_THRESH)
-            {
-                m_current_level = 0;
-                ret_status = Status::ERROR;
-            }
-            // Serial.print("consec error: ");
-            // Serial.println(m_consec_error);
         }
         else
         {
