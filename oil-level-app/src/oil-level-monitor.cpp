@@ -1,4 +1,5 @@
 #include <oil-level-monitor.hpp>
+#include <numeric>
 
 String OilLevelMonitor::status_to_string(Status status)
 {
@@ -26,6 +27,7 @@ void OilLevelMonitor::init()
     m_distance_valid = false;
     m_consec_error = 0;
     m_gone_through_once = false;
+    m_measurements.clear();
 
     Wire.begin();
     if (! vl53.begin(0x29, &Wire)) {
@@ -55,13 +57,13 @@ void OilLevelMonitor::init()
     */
 }
 
-int16_t OilLevelMonitor::get_distance()
+void OilLevelMonitor::update_level()
 {
     m_distance_valid = false;
-    int16_t distance = 0;
+    int16_t raw_distance = 0;
     if (vl53.dataReady()) {
-        distance = vl53.distance();
-        if (distance == -1) {
+        raw_distance = vl53.distance();
+        if (raw_distance == -1) {
             // something went wrong!
             Serial.print(F("Couldn't get distance: "));
             Serial.println(vl53.vl_status);
@@ -76,23 +78,32 @@ int16_t OilLevelMonitor::get_distance()
         // data is read out, time for another reading!
         vl53.clearInterrupt();
     }
-    return distance;
+    if (m_distance_valid)
+    {
+        const int16_t shifted_distance = raw_distance - m_params.tank_range.first;
+        if (m_measurements.size() == m_params.filter_size)
+        {
+            m_measurements.erase(m_measurements.begin());
+        }
+        m_measurements.push_back(shifted_distance);
+        // should never be empty at this point
+        // no need to check for it
+        const float avg = std::reduce(m_measurements.begin(), m_measurements.end()) / m_measurements.size();
+        m_current_level = mm_to_percent(avg);
+    }
 }
 
 OilLevelMonitor::Status OilLevelMonitor::update()
 {
     const unsigned long current_millis = millis();
     Status ret_status = m_prev_status;
-    if (current_millis - prev_update_ts > MEASUREMENT_INTERVAL)
+    if (current_millis - prev_update_ts > m_params.measurement_interval)
     {
-        m_current_level = mm_to_percent(get_distance());
+        update_level();
+        m_current_level = get_level();
         // Serial.print(m_current_level * 100.0f, 2);
         // Serial.println(" %");
-        if (!m_distance_valid)
-        {
-            ret_status = Status::ERROR;
-        }
-        else if (m_current_level > FULL_THRESHOLD)
+        if (m_current_level > FULL_THRESHOLD)
         {
             ret_status = Status::FULL;
         }
@@ -112,12 +123,12 @@ OilLevelMonitor::Status OilLevelMonitor::update()
                 // if level is higher than it was before trigger fill notification
                 // probably pass in a callback to call
                 // Serial.println("recently filled");
-                if (m_tank_filled_cb) { m_tank_filled_cb(ret_status, m_current_level); }
+                if (m_params.tank_filled_cb) { m_params.tank_filled_cb(ret_status, m_current_level); }
             }
             if (tank_low_event(m_prev_status, ret_status))
             {
                 // Serial.println("tank is low");
-                if (m_tank_low_cb) { m_tank_low_cb(ret_status, m_current_level); }
+                if (m_params.tank_low_cb) { m_params.tank_low_cb(ret_status, m_current_level); }
             }
             // Serial.print("prev status: ");
             // Serial.print(static_cast<int>(m_prev_status));
