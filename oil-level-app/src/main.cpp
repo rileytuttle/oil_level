@@ -9,10 +9,12 @@
 static constexpr uint32_t TANK_LOW_PUBLISH_INTERVAL = 1000 * 10;
 static constexpr uint32_t TANK_FILLED_PUBLISH_INTERVAL = 1000 * 10;
 static constexpr uint32_t TANK_LEVEL_PUBLISH_INTERVAL = 1000 * 60;
+static constexpr uint32_t OIL_LEVEL_MEASUREMENT_INTERVAL = 1000;
 #else
 static constexpr uint32_t TANK_LOW_PUBLISH_INTERVAL = 1000 * 60 * 60 * 24; // minimum interval between webhooks publishes
 static constexpr uint32_t TANK_FILLED_PUBLISH_INTERVAL = 1000 * 60 * 60 * 24; // minimum interval between webhooks publishes
 static constexpr uint32_t TANK_LEVEL_PUBLISH_INTERVAL = 1000 * 60 * 60 * 24 * 3; // only publish the level every few days
+static constexpr uint32_t OIL_LEVEL_MEASUREMENT_INTERVAL = 1000 * 60 * 10;
 #endif
 
 WiFiClientSecure wifiClient;
@@ -142,6 +144,7 @@ const OilLevelMonitor::Params params =
 {
     .tank_low_cb = webhooks_tank_low_event,
     .tank_filled_cb = webhooks_tank_filled_event,
+    .measurement_interval = OIL_LEVEL_MEASUREMENT_INTERVAL,
 };
 
 OilLevelMonitor oil_level_monitor(params);
